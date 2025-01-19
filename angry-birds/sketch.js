@@ -22,8 +22,10 @@ boxImg,
 groundImg, 
 bird, 
 birdImg = [], 
+pigImg,
 slingshot, 
-mc;
+mc,
+pigs = [];
 
 function setup() {
   const canvas =
@@ -36,6 +38,8 @@ function setup() {
     loadImage("img/red.png"),
     loadImage("img/yellow.png"),
   ]
+
+  pigImg = loadImage("img/pig.png");
 
   engine = Engine.create();
   world = engine.world;
@@ -63,7 +67,7 @@ function setup() {
     boxes.push(box);
 
     box = new Box(
-      440, height - 40 * i,
+      400 + 80, height - 40 * i,
       40, 40, boxImg
     );
     boxes.push(box);
@@ -71,6 +75,11 @@ function setup() {
 
   bird = new Bird(100, 200, 15, birdImg[0]);
   slingshot = new SlingShot(bird);
+
+  let pig = new Pig(450, 100, 20, pigImg);
+  pigs.push(pig);
+
+  Events.on(engine, 'collisionStart', handleCollisions);  
 }
 
 function draw() {
@@ -83,6 +92,10 @@ function draw() {
     box.show();
   }
 
+  for (const pig of pigs) {
+    pig.show();
+  }  
+
   slingshot.show();
   bird.show();
   ground.show();
@@ -94,6 +107,41 @@ function keyPressed() {
     const index = floor(random(0, birdImg.length));
     bird = new Bird(100, 200, 15, birdImg[index]);
     slingshot.attach(bird);
+  }
+}
+
+function handleCollisions(event) {
+  const pairs = event.pairs;
+
+  for (const pair of pairs) {
+    const bodyA = pair.bodyA;
+    const bodyB = pair.bodyB;
+
+    if (bodyA === bird.body || bodyB === bird.body) {
+      const otherBody = bodyA === bird.body ? bodyB : bodyA;
+
+      for (const box of boxes) {
+        if (box.body === otherBody) {
+          const velocity = Math.sqrt(
+            bird.body.velocity.x ** 2 + bird.body.velocity.y ** 2
+          );
+          const damage = Math.max(10, velocity * 10);
+          box.hit(damage);
+          break;
+        }
+      }
+
+      for (const pig of pigs) {
+        if (pig.body === otherBody) {
+          const velocity = Math.sqrt(
+            bird.body.velocity.x ** 2 + bird.body.velocity.y ** 2
+          );
+          const damage = Math.max(10, velocity * 10);
+          pig.hit(damage);
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -141,6 +189,61 @@ class Bird {
   }
 }
 
+class Pig {
+  constructor(x, y, r, img) {
+    this.body = Bodies.circle(
+      x, y, r, // set x and y position and radius
+      {
+        restitution: 0.5, // bounciness
+        collisionFilter: { category: 2 }, // set collision category to 2
+      }
+    );
+    Body.setMass(this.body, 2);
+    this.img = img;
+    this.r = r;
+    this.health = 50; // Vida inicial del cerdo
+    this.isDestroyed = false;
+    World.add(world, this.body);
+  }
+
+  show() {
+    if (this.isDestroyed) return;
+
+    push();
+    translate(this.body.position.x, this.body.position.y);
+    rotate(this.body.angle);
+
+    if (this.img) {
+      imageMode(CENTER);
+      image(this.img, 0, 0, 2 * this.r, 2 * this.r);
+    } else {
+      ellipseMode(CENTER);
+      ellipse(0, 0, 2 * this.r, 2 * this.r);
+    }
+
+    fill(0);
+    textAlign(CENTER, CENTER);
+    textSize(14);
+    text(Math.round(this.health), 0, 0);
+
+    pop();
+  }
+
+  hit(damage) {
+    if (this.isDestroyed) return;
+
+    this.health -= damage;
+    if (this.health <= 0) {
+      this.destroy();
+    }
+  }
+
+  destroy() {
+    World.remove(world, this.body);
+    this.isDestroyed = true;
+  }
+}
+
 class Box {
   constructor(x, y, w, h, img, options = {}) {
     this.body = Bodies.rectangle(x, y, w, h, options);
@@ -148,9 +251,16 @@ class Box {
     this.h = h;
     this.img = img;
     World.add(world, this.body);
+    this.health = 100;
+    this.isDestroyed = false; 
   }
 
+  /**
+   * Show the box
+   */
   show() {
+    if (this.isDestroyed) return;
+
     push();
     translate(this.body.position.x, this.body.position.y);
     rotate(this.body.angle);
@@ -162,8 +272,34 @@ class Box {
       rectMode(CENTER);
       rect(0, 0, this.w, this.h);
     }
+
+    fill(0);
+    textAlign(CENTER, CENTER);
+    textSize(14);
+    text(Math.round(this.health), 0, 0);
+
     pop();
   }
+
+  /**
+   * Decrease the health of the box
+   * 
+   * @param {*} damage 
+   */
+  hit(damage) {
+    this.health -= damage;
+    if (this.health <= 0) {
+      this.destroy();
+    }
+  }
+
+  /**
+   * Destroy the box (remove from world and mark as destroyed)
+   */
+  destroy() {
+    World.remove(world, this.body); // Remover del motor físico
+    this.isDestroyed = true; // Marcar como destruida para evitar dibujarla
+  }  
 
 }
 
