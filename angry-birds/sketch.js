@@ -29,7 +29,7 @@ pigs = [];
 
 function setup() {
   const canvas =
-    createCanvas(500, 300);
+    createCanvas(800, 400);
 
   boxImg = loadImage("img/box.png");
   groundImg = loadImage("img/ground.jpg");
@@ -61,22 +61,22 @@ function setup() {
 
   for (let i = 0; i <= 6; i++) {
     let box = new Box(
-      400, height - 40 * i,
+      550, height - 40 * i,
       40, 40, boxImg
     );
     boxes.push(box);
 
-    box = new Box(
+    /* box = new Box(
       400 + 80, height - 40 * i,
       40, 40, boxImg
     );
-    boxes.push(box);
+    boxes.push(box); */
   }
 
   bird = new Bird(100, 200, 15, birdImg[0]);
   slingshot = new SlingShot(bird);
 
-  let pig = new Pig(450, 100, 20, pigImg);
+  let pig = new Pig(570, 100, 20, pigImg);
   pigs.push(pig);
 
   Events.on(engine, 'collisionStart', handleCollisions);  
@@ -141,6 +141,22 @@ function handleCollisions(event) {
           break;
         }
       }
+
+      for (const box of boxes) {
+        for (const pig of pigs) {
+          if (
+            (box.body === bodyA && pig.body === bodyB) ||
+            (box.body === bodyB && pig.body === bodyA)
+          ) {
+            const velocity = Math.sqrt(
+              box.body.velocity.x ** 2 + box.body.velocity.y ** 2
+            );
+            const damage = Math.max(5, velocity * 5); 
+            break;
+          }
+        }
+      }
+      
     }
   }
 }
@@ -191,13 +207,7 @@ class Bird {
 
 class Pig {
   constructor(x, y, r, img) {
-    this.body = Bodies.circle(
-      x, y, r, // set x and y position and radius
-      {
-        restitution: 0.5, // bounciness
-        collisionFilter: { category: 2 }, // set collision category to 2
-      }
-    );
+    this.body = Bodies.circle(x, y, r);
     Body.setMass(this.body, 2);
     this.img = img;
     this.r = r;
@@ -241,6 +251,8 @@ class Pig {
   destroy() {
     World.remove(world, this.body);
     this.isDestroyed = true;
+    pigs = pigs.filter(pig => pig !== this);
+    console.log("Pigs:", pigs);
   }
 }
 
@@ -297,8 +309,10 @@ class Box {
    * Destroy the box (remove from world and mark as destroyed)
    */
   destroy() {
-    World.remove(world, this.body); // Remover del motor físico
-    this.isDestroyed = true; // Marcar como destruida para evitar dibujarla
+    World.remove(world, this.body); 
+    this.isDestroyed = true; 
+    boxes = boxes.filter(box => box !== this);
+    console.log("Boxes:", boxes);
   }  
 
 }
